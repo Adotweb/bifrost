@@ -1,6 +1,11 @@
 mod lexer;
+mod parser;
+mod errors;
+
 
 pub use lexer::*;
+pub use parser::*;
+pub use errors::*;
 
 fn main() {
 

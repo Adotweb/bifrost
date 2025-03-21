@@ -11,6 +11,9 @@ pub enum TokenType{
     ID(String),
     NUM(String),
     STR(String),
+    FALSE,
+    TRUE,
+    NIL,
   
 
     //these are to check whether or not two tokens have the same type
@@ -85,13 +88,17 @@ impl TokenType{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token{
-    r#type : TokenType,
-    position : (usize, usize)
+    pub r#type : TokenType,
+    pub position : (usize, usize)
 }
 
 impl Token{
     pub fn append_to(&self, tokens : &mut Vec<Token>){
         tokens.push(self.clone())
+    }
+
+    pub fn check_against_token_type(&self, check_token_type : TokenType) -> bool{ 
+        return self.r#type.type_of(check_token_type)
     }
 }
 
@@ -148,6 +155,9 @@ fn number(chars : Vec<String>, index : &mut usize, line : &mut usize, column : &
             break;
         }
     }
+
+    //remove all "_" because they are only for readability
+    number.replace_range(0..number.len(), "_");
 
     TokenType::NUM(number)
         .token(start_position.0, start_position.1)
@@ -221,6 +231,10 @@ fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column
         "let" => TokenType::LET,
         "const" => TokenType::CONST,
 
+        "false" => TokenType::FALSE,
+        "true" => TokenType::TRUE,
+        "nil" => TokenType::NIL,
+    
         "if" => TokenType::IF,
         "else" => TokenType::ELSE,
 

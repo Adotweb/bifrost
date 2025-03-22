@@ -9,6 +9,8 @@ pub enum Expression {
     LiteralID(String),
     LiteralNil,
 
+    LiteralArray(Vec<Expression>),
+
     Binary{
         left : Box<Expression>,
         operator : Token,
@@ -317,7 +319,7 @@ fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
                     if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
                         return Err(Error::UnexpectedTokenOfMany{
                             expected : vec![], 
-                            unexpected : TokenType::RPAREN
+                            unexpected : TokenType::COMMA
                         })
                     }
                 }
@@ -357,6 +359,33 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
         TokenType::FALSE => {
             Expression::LiteralBool(false).expr()
         },
+
+
+        //arrays
+        TokenType::LBRACK => {
+            let mut literals : Vec<Expression> = Vec::new();
+            while let Some(token) = tokens.get(*current_index){
+                let literal = expr(tokens, current_index)?;
+                
+                literals.push(literal);
+
+                if get_current_token(tokens, current_index)?.r#type == TokenType::RBRACK{
+                    consume_token(tokens, current_index)?;
+                    break;
+                }
+
+                match_token(tokens, current_index, TokenType::COMMA)?;
+
+                if get_current_token(tokens, current_index)?.r#type == TokenType::RBRACK{
+                    return Err(Error::UnexpectedTokenOfMany{
+                        expected : vec![], 
+                        unexpected : TokenType::COMMA
+                    })
+                }
+            } 
+
+            Ok(Expression::LiteralArray(literals))
+        }
 
         TokenType::LPAREN => {
             let expression = expr(tokens, current_index)?;

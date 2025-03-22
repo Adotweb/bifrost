@@ -257,80 +257,51 @@ fn unary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
 }
 
 fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    let left = primary(tokens, current_index)?;
+    let mut left = primary(tokens, current_index)?;
 
-
-    //field call using the [] operator, this is also used for array indexing
-    if match_tokens(tokens, current_index, vec![
-        TokenType::LBRACK,
-    ])? {
-        consume_token(tokens, current_index)?;
-        let right = call(tokens, current_index)?;
-
-        //match for the closing delimiter
-        match_token(tokens, current_index, TokenType::RBRACK)?;
-
-        return Ok(Expression::FieldCall{
-            target : Box::new(left),
-            value : Box::new(right)
-        })
-    }
-
-    //function call using the () operator
-    if match_tokens(tokens, current_index, vec![
-        TokenType::LPAREN,
-    ])? {
-        consume_token(tokens, current_index)?;
-  
-        let mut arguments : Vec<Expression> = Vec::new();
-
-        while let Some(token) = tokens.get(*current_index){
-           
-            let argument = expr(tokens, current_index)?;
    
-            arguments.push(argument);
+    while match_tokens(tokens, current_index, vec![
+        TokenType::LBRACK,
+        TokenType::LPAREN,
+        TokenType::DOT
+    ])? {
 
+        match get_current_token(tokens, current_index)?.r#type {
+            TokenType::DOT => {
+                let operator = get_current_token(tokens, current_index)?;
+                consume_token(tokens, current_index)?;
+    
 
-            if let Some(next_token) = tokens.get(*current_index + 1){
-                if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN { 
-                    break;
+                //we use primary instead of expr because DOT cannot be used for something like: 
+                //4.(3 + 4)
+                //thats what the [] operator is for
+                let right = primary(tokens, current_index)?;
+                left = Expression::Binary{
+                    left : Box::new(left), 
+                    operator,
+                    right :  Box::new(right)
                 }
-                if next_token.r#type == TokenType::RPAREN {
-                    let current_token = get_current_token(tokens, current_index)?; 
-                    return Err(Error::UnexpectedTokenOfMany{
-                        unexpected : current_token.r#type,
-                        expected : vec![]
-                    })
+            },
+            TokenType::LBRACK => {
+               
+                let operator = get_current_token(tokens, current_index)?;
+                consume_token(tokens, current_index)?;
+
+                let right = expr(tokens, current_index)?;
+
+                match_token(tokens, current_index, TokenType::RBRACK)?;
+
+                left = Expression::Binary{
+                    left : Box::new(left),
+                    operator,
+                    right : Box::new(right)
                 }
             }
-
-            match_token(tokens, current_index, TokenType::COMMA)?;
+            _ => ()
         }
 
-        //match for closing delimiter
-        match_token(tokens, current_index, TokenType::RPAREN)?;
-
-
-
-        return Ok(Expression::FunctionCall{
-            function : Box::new(left),
-            arguments
-        })
     }
 
-     //field call using the [] operator, this is also used for array indexing
-    if match_tokens(tokens, current_index, vec![
-        TokenType::DOT,
-    ])? {
-        consume_token(tokens, current_index)?;
-        let right = call(tokens, current_index)?;
-
-        return Ok(Expression::FieldCall{
-            target : Box::new(left),
-            value : Box::new(right)
-        })
-    }
-    
 
     Ok(left)
 }

@@ -296,6 +296,36 @@ fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
                     operator,
                     right : Box::new(right)
                 }
+            },
+            TokenType::LPAREN => {
+                consume_token(tokens, current_index)?;
+                
+                let mut arguments : Vec<Expression> = Vec::new();
+                while let Some(token) = tokens.get(*current_index){
+                    let argument = expr(tokens, current_index)?; 
+                    arguments.push(argument);
+ 
+                    //check if we encountered the closing brackets
+                    if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
+                        consume_token(tokens, current_index)?;
+                        break;
+                    }                   
+
+                    match_token(tokens, current_index, TokenType::COMMA)?;
+
+                    //check if we have a trailing comma
+                    if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
+                        return Err(Error::UnexpectedTokenOfMany{
+                            expected : vec![], 
+                            unexpected : TokenType::RPAREN
+                        })
+                    }
+                }
+
+                left = Expression::FunctionCall{
+                    function : Box::new(left),
+                    arguments 
+                }
             }
             _ => ()
         }

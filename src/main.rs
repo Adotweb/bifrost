@@ -12,7 +12,7 @@ fn main() {
 
     let text = r#"
     
-
+            some_func(hello, "siuu").siuu("hello");
 
         "#;
     

@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TokenType{
     LPAREN, 
     RPAREN,
@@ -89,9 +89,17 @@ impl TokenType{
     pub fn type_of(&self, check_type : TokenType) -> bool{
         return self.ignore_value() == check_type.ignore_value()
     }
+    
+    pub fn get_id_val(&self) -> Option<String>{
+        if let TokenType::ID(str) = self{
+            Some(str.to_string())
+        } else {
+            None
+        }
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Token{
     pub r#type : TokenType,
     pub position : (usize, usize)

@@ -1,15 +1,18 @@
 use crate::*;
+use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq)]
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
 
     LiteralStr(String),
-    LiteralNum(f64),
+    LiteralNum(u64, u64),
     LiteralBool(bool),
     LiteralID(String),
     LiteralNil,
 
     LiteralArray(Vec<Expression>),
+    LiteralObject(Vec<Expression>, Vec<Expression>),
 
     Binary{
         left : Box<Expression>,
@@ -79,11 +82,12 @@ pub enum Expression {
     }
 }
 
+
 impl Expression{
     pub fn expr(&self) -> Result<Expression, Error>{
         return Ok(self.clone())
     }
-
+    
 }
 
 pub type FallibleExpression = Result<Expression, Error>;
@@ -348,7 +352,16 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             Expression::LiteralID(name).expr()
         },
         TokenType::NUM(number) =>{
-            Expression::LiteralNum(number.parse::<f64>().unwrap()).expr()
+
+            //we break into two so we can do comparisons with hashmaps
+            let integral = number.split(".").nth(0).unwrap().parse::<u64>().unwrap();
+            let fractional = match number.split(".").nth(1) {
+                Some(part) => part.parse::<u64>().unwrap(),
+                None => 0
+            };
+                
+
+            Expression::LiteralNum(integral, fractional).expr()
         },
         TokenType::STR(string) => {
             Expression::LiteralStr(string).expr()
@@ -376,15 +389,158 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
                 match_token(tokens, current_index, TokenType::COMMA)?;
 
+
+                //we check twice to allow for trailing commas
                 if get_current_token(tokens, current_index)?.r#type == TokenType::RBRACK{
-                    return Err(Error::UnexpectedTokenOfMany{
-                        expected : vec![], 
-                        unexpected : TokenType::COMMA
-                    })
+                    consume_token(tokens, current_index)?;
+                    break;
                 }
+                
             } 
 
             Ok(Expression::LiteralArray(literals))
+        }, 
+
+        //objects
+
+        TokenType::LBRACE => {
+            
+            //first we check if we have an identifier followed by a colon 
+            //if yes we toggle the object mode on
+            let mut object_mode = false;
+
+            //we check if were in object mode by searching for a colon
+            //if we see it we consume it
+            if match_tokens(tokens, current_index, vec![TokenType::RBRACE])? {
+                consume_token(tokens, current_index)?;
+                return Expression::Block{
+                    expressions : vec![]
+                }.expr();
+            };
+
+
+            let first_expr = expr(tokens, current_index)?;
+
+
+            //we check if were in object mode by searching for a colon
+            //if we see it we consume it
+            if match_tokens(tokens, current_index, vec![TokenType::COLON])? {
+                object_mode = true;
+                consume_token(tokens, current_index)?;
+            }
+             
+            if object_mode {
+  
+                //when were in object mode, the first wave of keys is already there and we consume
+                //it
+                let first_key = first_expr.clone();
+                let first_expr = expr(tokens, current_index)?;
+               
+                
+
+                let mut keys = Vec::new();
+                let mut values = Vec::new();
+
+                keys.push(first_key);
+                values.push(first_expr);
+
+
+                //then we check if we are done, and if not we check for a comma
+                if match_tokens(tokens, current_index, vec![
+                    TokenType::RBRACE
+                ])? {
+                    consume_token(tokens, current_index)?;
+                    return Ok(Expression::LiteralObject(keys, values)) 
+                } else {
+                    match_token(tokens, current_index, TokenType::COMMA)?;
+                }
+
+                //again we match twice to lookout for trailing commas
+                if match_tokens(tokens, current_index, vec![
+                    TokenType::RBRACE
+                ])? {
+                    consume_token(tokens, current_index)?;
+                    return Ok(Expression::LiteralObject(keys, values)) 
+                } 
+
+
+                //after that we do that again but in a loop this time
+                while let Some(token) = tokens.get(*current_index){
+
+                    let key = expr(tokens, current_index)?; 
+
+                    match_token(tokens, current_index, TokenType::COLON)?;
+
+                    let literal = expr(tokens, current_index)?;
+
+                    keys.push(key);
+                    values.push(literal);
+
+                    if match_tokens(tokens, current_index, vec![
+                        TokenType::RBRACE
+                    ])? {
+                        consume_token(tokens, current_index)?;
+                        return Ok(Expression::LiteralObject(keys, values)) 
+                    }
+
+                    match_token(tokens, current_index, TokenType::COMMA)?;
+                    
+                    if match_tokens(tokens, current_index, vec![
+                        TokenType::RBRACE
+                    ])? {
+                        consume_token(tokens, current_index)?;
+                        return Ok(Expression::LiteralObject(keys, values)) 
+                    }
+                
+                }
+
+            }
+
+
+            //when were not in object mode we are in block mode
+            if !object_mode {
+                
+
+                let mut block : Vec<Expression> = Vec::new();
+                block.push(first_expr);
+                
+                match_token(tokens, current_index, TokenType::SEMICOLON)?;
+                if match_tokens(tokens, current_index, vec![
+                        TokenType::RBRACE
+                ])? {
+                    consume_token(tokens, current_index)?;
+                    return Expression::Block{
+                        expressions : block
+                    }.expr()
+                }
+
+
+                while let Some(token) = tokens.get(*current_index){
+
+                    println!("{:?}", token);
+                    let expression = expr(tokens, current_index)?;
+
+
+                    block.push(expression);
+
+                    match_token(tokens, current_index, TokenType::SEMICOLON)?;
+
+                    if match_tokens(tokens, current_index, vec![
+                        TokenType::RBRACE
+                    ])? {
+                        consume_token(tokens, current_index)?;
+                        break;
+                    }
+                }
+
+                return Expression::Block{
+                    expressions : block
+                }.expr()
+            }
+
+            Ok(Expression::Block{
+                expressions : vec![]
+            })
         }
 
         TokenType::LPAREN => {
@@ -406,6 +562,7 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
     }
 
 }
+
 
 pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
 

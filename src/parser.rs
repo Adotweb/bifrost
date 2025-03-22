@@ -36,6 +36,10 @@ pub enum Expression {
         else_block : Option<Box<Expression>>
     },
 
+    Return {
+        value : Box<Expression>
+    },
+
     While{
         condition : Box<Expression>,
         block : Box<Expression>
@@ -49,6 +53,16 @@ pub enum Expression {
     Fn{
         arguments : Vec<Token>,
         body : Box<Expression>
+    },
+
+    FunctionCall{
+        function : Box<Expression>,
+        arguments: Vec<Expression>
+    },
+
+    FieldCall{
+        target : Box<Expression>,
+        value : Box<Expression>
     },
 
     Assign{
@@ -133,7 +147,6 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
         }
 
     } else {
-        println!("{:?}", get_current_token(tokens, current_index));
         Err(Error::Nil)
     }
 
@@ -148,6 +161,7 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
 // +/-
 // *// 
 // !/- 
+// FieldCall
 // literals/functions/arrays/objects
 
 fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
@@ -297,7 +311,6 @@ fn factor(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressio
     
 
     Ok(left)
-
 }
 
 fn unary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
@@ -316,15 +329,92 @@ fn unary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
         })
     }
 
-    primary(tokens, current_index)
+    call(tokens, current_index)
+}
+
+fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    let left = primary(tokens, current_index)?;
+
+
+    //field call using the [] operator, this is also used for array indexing
+    if match_tokens(tokens, current_index, vec![
+        TokenType::LBRACK,
+    ])? {
+        consume_token(tokens, current_index)?;
+        let right = call(tokens, current_index)?;
+
+        //match for the closing delimiter
+        match_token(tokens, current_index, TokenType::RBRACK)?;
+
+        return Ok(Expression::FieldCall{
+            target : Box::new(left),
+            value : Box::new(right)
+        })
+    }
+
+    //function call using the () operator
+    if match_tokens(tokens, current_index, vec![
+        TokenType::LPAREN,
+    ])? {
+        consume_token(tokens, current_index)?;
+  
+        let mut arguments : Vec<Expression> = Vec::new();
+
+        while let Some(token) = tokens.get(*current_index){
+           
+            let argument = expr(tokens, current_index)?;
+   
+            arguments.push(argument);
+
+
+            if let Some(next_token) = tokens.get(*current_index + 1){
+                if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN { 
+                    break;
+                }
+                if next_token.r#type == TokenType::RPAREN {
+                    let current_token = get_current_token(tokens, current_index)?; 
+                    return Err(Error::UnexpectedTokenOfMany{
+                        unexpected : current_token.r#type,
+                        expected : vec![]
+                    })
+                }
+            }
+
+            match_token(tokens, current_index, TokenType::COMMA)?;
+        }
+
+        //match for closing delimiter
+        match_token(tokens, current_index, TokenType::RPAREN)?;
+
+
+
+        return Ok(Expression::FunctionCall{
+            function : Box::new(left),
+            arguments
+        })
+    }
+
+     //field call using the [] operator, this is also used for array indexing
+    if match_tokens(tokens, current_index, vec![
+        TokenType::DOT,
+    ])? {
+        consume_token(tokens, current_index)?;
+        let right = call(tokens, current_index)?;
+
+        return Ok(Expression::FieldCall{
+            target : Box::new(left),
+            value : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)
 }
 
 fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
    
     let token = get_current_token(tokens, current_index)?;
     consume_token(tokens, current_index)?;
-
-    println!("{:?}", token);
     match token.r#type{
         
         TokenType::ID(name) => {

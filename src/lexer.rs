@@ -59,6 +59,7 @@ pub enum TokenType{
     FOR,
     BREAK,
     CONTINUE,
+    RETURN,
 
     TO,
 
@@ -250,6 +251,7 @@ fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column
         "for" => TokenType::FOR,
         "break" => TokenType::BREAK,
         "continue" => TokenType::CONTINUE,
+        "return" => TokenType::RETURN,
         
         "overload" => TokenType::OVERLOAD,
 
@@ -307,6 +309,7 @@ pub fn lex(text : &'static str) -> Vec<Token>{
             "*" => TokenType::STAR.token(line, column).append_to(&mut tokens),
             "/" => TokenType::SLASH.token(line, column).append_to(&mut tokens),
 
+            "," => TokenType::COMMA.token(line, column).append_to(&mut tokens),
             ":" => TokenType::COLON.token(line, column).append_to(&mut tokens),
             "." => {
                 match next_char {

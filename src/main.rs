@@ -11,12 +11,15 @@ fn main() {
 
 
     let text = r#"
+    
 
-            a = true and false;
+        some_func("hello", 3 + 4);
 
         "#;
     
     let tokens = lex(text);
+
+    //println!("{:#?}", tokens.clone());
 
     let ast = parse(tokens);
 

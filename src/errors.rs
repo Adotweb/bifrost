@@ -6,6 +6,10 @@ pub enum Error{
     UnexpectedToken{
         expected : TokenType,
         unexpected : TokenType
+    },
+    UnexpectedTokenOfMany{
+        expected : Vec<TokenType>,
+        unexpected : TokenType
     }
 }
 

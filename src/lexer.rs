@@ -157,9 +157,9 @@ fn number(chars : Vec<String>, index : &mut usize, line : &mut usize, column : &
     }
 
     //remove all "_" because they are only for readability
-    number.replace_range(0..number.len(), "_");
+    let new_number = number.chars().filter(|x| *x != '_').collect::<String>();
 
-    TokenType::NUM(number)
+    TokenType::NUM(new_number)
         .token(start_position.0, start_position.1)
         .append_to(tokens);
         

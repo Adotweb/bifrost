@@ -11,16 +11,14 @@ fn main() {
 
 
     let text = r#"
-    
-            let p = 5;
 
-            let s = "hello there";
-
+            4 - 4 - 4;
 
         "#;
     
     let tokens = lex(text);
 
+    let ast = parse(tokens);
 
-    println!("{:#?}", tokens);
+    println!("{:#?}", ast);
 }

@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
 
     LiteralStr(String),
@@ -67,6 +67,7 @@ impl Expression{
     pub fn expr(&self) -> Result<Expression, Error>{
         return Ok(self.clone())
     }
+
 }
 
 pub type FallibleExpression = Result<Expression, Error>;
@@ -95,17 +96,23 @@ fn match_token(tokens : &Vec<Token>, current_index : &mut usize, check_token : T
 
     if let Some(next_token) = tokens.get(*current_index + 1){
         let token = get_current_token(tokens, current_index)?;
-        if token.check_against_token_type(check_token){
+        if token.check_against_token_type(check_token.clone()){
            
             *current_index += 1;
             Ok(next_token.clone())
 
         } else {
-            Err(Error::Nil)
+            Err(Error::UnexpectedToken{
+                expected : check_token,
+                unexpected : token.r#type
+            })
         }
 
     } else {
-        Err(Error::Nil)
+        Err(Error::UnexpectedToken{
+            expected : check_token,
+            unexpected : TokenType::EOF
+        })
     }
 
 }
@@ -114,12 +121,11 @@ fn match_token(tokens : &Vec<Token>, current_index : &mut usize, check_token : T
 //matches
 fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens : Vec<TokenType>) -> Result<bool, Error>{
 
-    if let Some(next_token) = tokens.get(*current_index + 1){
+    if let Some(token) = tokens.get(*current_index){
         let token = get_current_token(tokens, current_index)?;
 
         if check_tokens.iter().map(|x| token.check_against_token_type(x.clone())).any(|x| x == true){
            
-            *current_index += 1;
             Ok(true)
 
         } else {
@@ -127,6 +133,7 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
         }
 
     } else {
+        println!("{:?}", get_current_token(tokens, current_index));
         Err(Error::Nil)
     }
 
@@ -134,56 +141,131 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
 
 
 fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    
+    term(tokens, current_index)
 }
 
 fn term(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
     
     let left = factor(tokens, current_index)?;
 
-    if 
+
+    if match_tokens(tokens, current_index, vec![
+        TokenType::PLUS, 
+        TokenType::MINUS
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+        
+        let right = term(tokens, current_index)?;
+
+        return Ok(Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        })
+    }
     
+
+    Ok(left)
 }
 
 fn factor(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    let left = unary(tokens, current_index)?;
 
+    if match_tokens(tokens, current_index, vec![
+        TokenType::STAR, 
+        TokenType::SLASH
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+
+
+        let right = factor(tokens, current_index)?;
+
+        return Ok(Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)
 
 }
 
 fn unary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    if match_tokens(tokens, current_index, vec![
+            TokenType::STAR, 
+            TokenType::BANG
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
 
+        let right = unary(tokens, current_index)?;
 
+        return Ok(Expression::Unary{
+            operator,
+            right : Box::new(right)
+        })
+    }
+
+    primary(tokens, current_index)
 }
 
 fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
    
     let token = get_current_token(tokens, current_index)?;
+    consume_token(tokens, current_index)?;
+
+    println!("{:?}", token);
     match token.r#type{
         
-        TokenType::ID(name) => Expression::LiteralID(name).expr(),
-        TokenType::NUM(number) => Expression::LiteralNum(number.parse::<f64>().unwrap()).expr(),
-        TokenType::STR(string) => Expression::LiteralStr(string).expr(),
+        TokenType::ID(name) => {
+            Expression::LiteralID(name).expr()
+        },
+        TokenType::NUM(number) =>{
+            Expression::LiteralNum(number.parse::<f64>().unwrap()).expr()
+        },
+        TokenType::STR(string) => {
+            Expression::LiteralStr(string).expr()
+        },
 
         TokenType::LPAREN => {
-            consume_token(tokens, current_index)?;
-            expr(tokens, current_index)
+            let expression = expr(tokens, current_index)?;
+            match_token(tokens, current_index, TokenType::RPAREN)?;  
+
+            Ok(Expression::Grp{
+                inner : Box::new(expression)
+            })
         },
+
+
     
         
 
-        _ => Err(Error::Nil) 
+        _ => {
+            Err(Error::Nil) 
+        }
     }
 
 }
 
-pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, &'static str> {
+pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
 
     let mut expressions = Vec::new();
-    let mut index = 0;
+    let index = &mut 0;
 
-    while let Some(token) = tokens.get(index){
-         
-        
+    while let Some(token) = tokens.get(*index){
+        if let TokenType::EOF = token.r#type {
+            return Ok(expressions) 
+        }
+    
+        let expression = expr(&tokens, index)?;
+
+        match_token(&tokens, index, TokenType::SEMICOLON)?;
+
+        expressions.push(expression)
     }
 
 

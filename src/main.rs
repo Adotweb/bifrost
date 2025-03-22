@@ -12,7 +12,7 @@ fn main() {
 
     let text = r#"
 
-            4 - 4 - 4;
+            a = true and false;
 
         "#;
     

@@ -140,8 +140,114 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
 }
 
 
+//operator precedence is 
+// =
+// ==/!=
+// and/or/xor 
+// >/>=/</<=
+// +/-
+// *// 
+// !/- 
+// literals/functions/arrays/objects
+
 fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    term(tokens, current_index)
+    assign(tokens, current_index)
+}
+
+fn assign(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
+    let left = equality(tokens, current_index)?;
+
+
+    if match_tokens(tokens, current_index, vec![
+            TokenType::EQ
+    ])? {
+        consume_token(tokens, current_index)?;
+        
+        let right = assign(tokens, current_index)?;
+
+        return Ok(Expression::Assign{
+            target : Box::new(left),
+            value : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)   
+}
+
+fn equality(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
+    let left = logical(tokens, current_index)?;
+
+
+    if match_tokens(tokens, current_index, vec![
+        TokenType::EQEQ, 
+        TokenType::NEQ
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+        
+        let right = equality(tokens, current_index)?;
+
+        return Ok(Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)   
+}
+
+fn logical(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
+    let left = comp(tokens, current_index)?;
+
+
+    if match_tokens(tokens, current_index, vec![
+        TokenType::XOR, 
+        TokenType::OR,
+        TokenType::AND, 
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+        
+        let right = logical(tokens, current_index)?;
+
+        return Ok(Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)   
+}
+
+fn comp(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
+    let left = term(tokens, current_index)?;
+
+
+    if match_tokens(tokens, current_index, vec![
+        TokenType::GEQ, 
+        TokenType::GE,
+        TokenType::LEQ, 
+        TokenType::LE,
+    ])? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+        
+        let right = comp(tokens, current_index)?;
+
+        return Ok(Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        })
+    }
+    
+
+    Ok(left)   
 }
 
 fn term(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
@@ -229,6 +335,12 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
         },
         TokenType::STR(string) => {
             Expression::LiteralStr(string).expr()
+        },
+        TokenType::TRUE => {
+            Expression::LiteralBool(true).expr()
+        },
+        TokenType::FALSE => {
+            Expression::LiteralBool(false).expr()
         },
 
         TokenType::LPAREN => {

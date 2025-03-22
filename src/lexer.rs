@@ -41,6 +41,10 @@ pub enum TokenType{
     LEQ,
     LE,
 
+    AND,
+    OR,
+    XOR,
+
     ARROW, // this thing: "->"
     IMPL, //this thing: "=>"
           
@@ -234,6 +238,10 @@ fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column
         "false" => TokenType::FALSE,
         "true" => TokenType::TRUE,
         "nil" => TokenType::NIL,
+
+        "and" => TokenType::AND,
+        "or" => TokenType::OR,
+        "xor" => TokenType::XOR,
     
         "if" => TokenType::IF,
         "else" => TokenType::ELSE,
@@ -363,7 +371,8 @@ pub fn lex(text : &'static str) -> Vec<Token>{
             index += 1;
             let _ = string(characters.clone(), &mut index, &mut line, &mut column, &mut tokens);
         }
-
+        
+        column += 1;
         index += 1;
 
     }

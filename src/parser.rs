@@ -153,6 +153,28 @@ fn match_tokens(tokens : &Vec<Token>, current_index : &mut usize, check_tokens :
 }
 
 
+//helper function to construct left associative binary expressions
+fn binary(tokens : &Vec<Token>, current_index : &mut usize, matches : Vec<TokenType>, below : fn(&Vec<Token>, &mut usize) -> FallibleExpression) -> FallibleExpression {
+    let mut left = below(tokens, current_index)?;
+
+    while match_tokens(tokens, current_index, matches.clone())? {
+        let operator = get_current_token(tokens, current_index)?;
+        consume_token(tokens, current_index)?;
+
+
+        let right = below(tokens, current_index)?;
+
+        left = Expression::Binary{
+            left : Box::new(left),
+            operator,
+            right : Box::new(right)
+        }
+    }
+    
+
+    Ok(left)
+}
+
 //operator precedence is 
 // =
 // ==/!=
@@ -169,148 +191,50 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
 }
 
 fn assign(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
-    let left = equality(tokens, current_index)?;
-
-
-    if match_tokens(tokens, current_index, vec![
-            TokenType::EQ
-    ])? {
-        consume_token(tokens, current_index)?;
-        
-        let right = assign(tokens, current_index)?;
-
-        return Ok(Expression::Assign{
-            target : Box::new(left),
-            value : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)   
+    binary(tokens, current_index, vec![
+        TokenType::EQ,
+    ], equality)   
 }
 
 fn equality(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
-    let left = logical(tokens, current_index)?;
-
-
-    if match_tokens(tokens, current_index, vec![
-        TokenType::EQEQ, 
-        TokenType::NEQ
-    ])? {
-        let operator = get_current_token(tokens, current_index)?;
-        consume_token(tokens, current_index)?;
-        
-        let right = equality(tokens, current_index)?;
-
-        return Ok(Expression::Binary{
-            left : Box::new(left),
-            operator,
-            right : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)   
+    binary(tokens, current_index, vec![
+        TokenType::EQEQ,
+        TokenType::NEQ,
+    ], logical)   
 }
 
 fn logical(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
-    let left = comp(tokens, current_index)?;
-
-
-    if match_tokens(tokens, current_index, vec![
-        TokenType::XOR, 
+    binary(tokens, current_index, vec![
+        TokenType::XOR,
         TokenType::OR,
-        TokenType::AND, 
-    ])? {
-        let operator = get_current_token(tokens, current_index)?;
-        consume_token(tokens, current_index)?;
-        
-        let right = logical(tokens, current_index)?;
-
-        return Ok(Expression::Binary{
-            left : Box::new(left),
-            operator,
-            right : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)   
+        TokenType::AND,
+    ], comp) 
 }
 
 fn comp(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
-    let left = term(tokens, current_index)?;
-
-
-    if match_tokens(tokens, current_index, vec![
-        TokenType::GEQ, 
+    binary(tokens, current_index, vec![
+        TokenType::GEQ,
         TokenType::GE,
-        TokenType::LEQ, 
+        TokenType::LEQ,
         TokenType::LE,
-    ])? {
-        let operator = get_current_token(tokens, current_index)?;
-        consume_token(tokens, current_index)?;
-        
-        let right = comp(tokens, current_index)?;
-
-        return Ok(Expression::Binary{
-            left : Box::new(left),
-            operator,
-            right : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)   
+    ], term)
 }
 
 fn term(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    
-    let left = factor(tokens, current_index)?;
-
-
-    if match_tokens(tokens, current_index, vec![
-        TokenType::PLUS, 
-        TokenType::MINUS
-    ])? {
-        let operator = get_current_token(tokens, current_index)?;
-        consume_token(tokens, current_index)?;
-        
-        let right = term(tokens, current_index)?;
-
-        return Ok(Expression::Binary{
-            left : Box::new(left),
-            operator,
-            right : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)
+    binary(tokens, current_index, vec![
+        TokenType::PLUS,
+        TokenType::MINUS,
+    ], factor)
 }
 
+
+
+
 fn factor(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    let left = unary(tokens, current_index)?;
-
-    if match_tokens(tokens, current_index, vec![
-        TokenType::STAR, 
-        TokenType::SLASH
-    ])? {
-        let operator = get_current_token(tokens, current_index)?;
-        consume_token(tokens, current_index)?;
-
-
-        let right = factor(tokens, current_index)?;
-
-        return Ok(Expression::Binary{
-            left : Box::new(left),
-            operator,
-            right : Box::new(right)
-        })
-    }
-    
-
-    Ok(left)
+    binary(tokens, current_index, vec![
+        TokenType::STAR,
+        TokenType::SLASH,
+    ],unary)
 }
 
 fn unary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{

@@ -13,7 +13,7 @@ fn main() {
     let text = r#"
     
 
-        some_func("hello", 3 + 4);
+        a + b - c;
 
         "#;
     

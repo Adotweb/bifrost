@@ -249,6 +249,8 @@ fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
     let mut else_if_blocks : Vec<(Expression, Expression)> = Vec::new();
     let mut else_block : Option<Box<Expression>> = None;
 
+    match_optional_token(tokens, current_index, TokenType::SEMICOLON)?;
+
     while match_tokens(tokens, current_index, vec![
         TokenType::ELSE
     ])? { 
@@ -268,6 +270,7 @@ fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             //match_token(tokens, current_index, TokenType::RPAREN)?;          
             let block = expr(tokens, current_index)?;
 
+            match_optional_token(tokens, current_index, TokenType::SEMICOLON)?;
             else_if_blocks.push((condition, block));
         } else {
             else_block = Some(Box::new(expr(tokens, current_index)?));
@@ -283,7 +286,16 @@ fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 }
 
 fn while_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    todo!()
+    consume_token(tokens, current_index)?;
+
+    let condition = expr(tokens, current_index)?;
+
+    let block = expr(tokens, current_index)?;
+
+    Expression::While{
+        condition : Box::new(condition),
+        block : Box::new(block)
+    }.expr()
 }
 
 fn for_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{ 
@@ -657,6 +669,12 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
 }
 
+fn match_optional_token(tokens : &Vec<Token>, current_index : &mut usize, optional_token : TokenType) -> Result<(), Error>{
+    if match_tokens(tokens, current_index, vec![optional_token])? {
+        consume_token(tokens, current_index)?;
+    } 
+    Ok(())
+}
 
 pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
 
@@ -672,10 +690,10 @@ pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
 
 
         match expression.clone() {
-            Expression::Block { expressions }  => (),
-            Expression::If { condition, if_block, else_if_blocks, else_block }  => (),
-            Expression::While { condition, block } => (),
-            Expression::For { condition, block } => (),
+            Expression::Block { expressions }  => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
+            Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
+            Expression::While { condition, block } => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
+            Expression::For { condition, block } => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
             _ => { match_token(&tokens, index, TokenType::SEMICOLON)?; }
         };
     

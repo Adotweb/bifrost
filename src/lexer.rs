@@ -213,7 +213,7 @@ fn string(chars : Vec<String>, index : &mut usize, line : &mut usize, column : &
 
 fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column : &mut usize, tokens : &mut Vec<Token>) -> Result<(), String>{
 
-    let id_match = "abcdefghijklmnopqrstuvxyz_0123456789";
+    let id_match = "abcdefghijklmnopqrstuvwxyz_0123456789";
 
     let mut identifier = "".to_string();
 
@@ -286,7 +286,7 @@ pub fn lex(text : &'static str) -> Vec<Token>{
     let mut line = 0;
     let mut column = 0;
 
-    let id_start_match = "_abcdefghijklmnopqrstuvxyz";
+    let id_start_match = "_abcdefghijklmnopqrstuvwxyz";
     let num_start_match = "0123456789"; 
 
 

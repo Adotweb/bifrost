@@ -12,9 +12,9 @@ fn main() {
 
     let text = r#"
    
-            if 4 < 5 hello
-            else { something; }
-            
+            while i > 5 {
+                i = i + 1;
+            } 
 
         "#;
     

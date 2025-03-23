@@ -12,9 +12,9 @@ fn main() {
 
     let text = r#"
     
-            object = {
-                
-            };
+            if (4 < 5) { hello; }
+            else { something; }
+            
 
         "#;
     

@@ -335,29 +335,44 @@ pub fn lex(text : &'static str) -> Vec<Token>{
 
             "!" => {
                 match next_char{
-                    Some("=") => TokenType::NEQ.token(line, column).append_to(&mut tokens),
+                    Some("=") => {
+                        index += 1;
+                        TokenType::NEQ.token(line, column).append_to(&mut tokens); 
+                    },
                     _ => TokenType::BANG.token(line, column).append_to(&mut tokens),
                 } 
             }
 
             "=" => {
                 match next_char{
-                    Some("=") => TokenType::EQEQ.token(line, column).append_to(&mut tokens),
-                    Some(">") => TokenType::IMPL.token(line, column).append_to(&mut tokens),
+                    Some("=") => {
+                        index += 1;
+                        TokenType::EQEQ.token(line, column).append_to(&mut tokens)
+                    },
+                    Some(">") => {
+                        index += 1;
+                        TokenType::IMPL.token(line, column).append_to(&mut tokens)
+                    },
                     _ => TokenType::EQ.token(line, column).append_to(&mut tokens),
                 }
             }
 
             "<" => {
                 match next_char{
-                    Some("=") => TokenType::LEQ.token(line, column).append_to(&mut tokens),
+                    Some("=") => {
+                        index += 1;
+                        TokenType::LEQ.token(line, column).append_to(&mut tokens)
+                    },
                     _ => TokenType::LE.token(line, column).append_to(&mut tokens),
                 }
             },
 
             ">" => {
                 match next_char{
-                    Some("=") => TokenType::GEQ.token(line, column).append_to(&mut tokens),
+                    Some("=") => {
+                        index += 1;
+                        TokenType::GEQ.token(line, column).append_to(&mut tokens)
+                    },
                     _ => TokenType::GE.token(line, column).append_to(&mut tokens),
                 }
             }

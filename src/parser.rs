@@ -36,7 +36,8 @@ pub enum Expression {
         condition : Box<Expression>,
         if_block : Box<Expression>,
         //as many as you wish
-        else_if_block : Option<Vec<Box<Expression>>>,
+        //have to hold the condition and the blocks 
+        else_if_blocks : Vec<(Expression, Expression)>,
         else_block : Option<Box<Expression>>
     },
 
@@ -181,6 +182,7 @@ fn binary(tokens : &Vec<Token>, current_index : &mut usize, matches : Vec<TokenT
 }
 
 //operator precedence is 
+//expression functions (things like if, else, while statements etc.)
 // =
 // ==/!=
 // and/or/xor 
@@ -190,10 +192,106 @@ fn binary(tokens : &Vec<Token>, current_index : &mut usize, matches : Vec<TokenT
 // !/- 
 // FieldCall
 // literals/functions/arrays/objects
-
 fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
-    assign(tokens, current_index)
+    
+    match get_current_token(tokens, current_index)?.r#type {
+        TokenType::LET => let_expr(tokens, current_index),
+        TokenType::CONST => const_expr(tokens, current_index),
+        TokenType::IF => if_expr(tokens, current_index),
+        TokenType::WHILE => while_expr(tokens, current_index),
+        TokenType::FOR => for_expr(tokens, current_index),
+        _ => assign(tokens, current_index)
+    }
+
 }
+
+fn let_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+  
+    let name = get_current_token(tokens, current_index)?;
+    match_token(tokens, current_index, TokenType::ID_)?;
+    match_token(tokens, current_index, TokenType::EQ)?;
+
+    let value = expr(tokens, current_index)?;
+
+    Expression::Declaration{
+        name,
+        value : Box::new(value),
+        constant : false
+    }.expr()
+}
+
+fn const_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+  
+    let name = get_current_token(tokens, current_index)?;
+    match_token(tokens, current_index, TokenType::ID_)?;
+    match_token(tokens, current_index, TokenType::EQ)?;
+
+    let value = expr(tokens, current_index)?;
+
+    Expression::Declaration{
+        name,
+        value : Box::new(value),
+        constant : true
+    }.expr()
+}
+
+
+fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+
+    match_token(tokens, current_index, TokenType::LPAREN)?;
+    let condition = expr(tokens, current_index)?;
+    match_token(tokens, current_index, TokenType::RPAREN)?;
+
+    let if_block = expr(tokens, current_index)?;
+    let mut else_if_blocks : Vec<(Expression, Expression)> = Vec::new();
+    let mut else_block : Option<Box<Expression>> = None;
+
+    while match_tokens(tokens, current_index, vec![
+        TokenType::ELSE
+    ])? { 
+        consume_token(tokens, current_index)?;
+  
+
+        //check if we have some else ifs
+        if match_tokens(tokens, current_index, vec![
+            TokenType::IF
+        ])? {
+            consume_token(tokens, current_index)?;
+ 
+            match_token(tokens, current_index, TokenType::LPAREN)?;
+            
+            println!("{:?}", get_current_token(tokens, current_index));
+            let condition = expr(tokens, current_index)?;
+
+
+            match_token(tokens, current_index, TokenType::RPAREN)?;          
+            let block = expr(tokens, current_index)?;
+
+            else_if_blocks.push((condition, block));
+        } else {
+            else_block = Some(Box::new(expr(tokens, current_index)?));
+        }
+    }
+
+    Expression::If{
+        condition : Box::new(condition),
+        if_block : Box::new(if_block),
+        else_if_blocks,
+        else_block
+    }.expr()
+}
+
+fn while_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    todo!()
+}
+
+fn for_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{ 
+    todo!()
+}
+
 
 fn assign(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{    
     binary(tokens, current_index, vec![
@@ -574,14 +672,14 @@ pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
     
         let expression = expr(&tokens, index)?;
 
-        //we check if the last expression was a block, if it was the semicolon becomes optional
-     
 
-
-        if let Expression::Block { ref expressions  } = expression{
-        } else {
-            match_token(&tokens, index, TokenType::SEMICOLON)?;
-        }
+        match expression.clone() {
+            Expression::Block { expressions }  => (),
+            Expression::If { condition, if_block, else_if_blocks, else_block }  => (),
+            Expression::While { condition, block } => (),
+            Expression::For { condition, block } => (),
+            _ => { match_token(&tokens, index, TokenType::SEMICOLON)?; }
+        };
     
 
         expressions.push(expression)

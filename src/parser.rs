@@ -2,6 +2,53 @@ use crate::*;
 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Type{
+    NullType,
+
+    TypedName{
+        name : Token,
+        r#type : Box<Type>
+    },
+    UntypedName(Token)
+}
+
+type FallibleType = Result<Type, Error>;
+
+//this is for typings in let and so on
+fn typed_primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    let name = get_current_token(tokens, current_index)?;
+
+    match_token(tokens, current_index, TokenType::COLON)?;
+
+    let constructed = construction(tokens, current_index)?;
+
+    Ok(Type::TypedName{
+        name,
+        r#type : Box::new(constructed)
+    })
+}
+
+fn construction(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    match get_current_token(tokens, current_index)? {
+
+        
+
+        _ => Ok(Type::NullType)
+    }
+}
+
+fn union(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    todo!() 
+}
+
+fn array(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{ 
+    todo!()
+}
+fn object(tokens : &Vec<Token>, current_index : &mut usize) - > FallibleType{
+    todo!()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
 
     LiteralStr(String),
@@ -199,7 +246,6 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
         TokenType::CONST => const_expr(tokens, current_index),
         TokenType::IF => if_expr(tokens, current_index),
         TokenType::WHILE => while_expr(tokens, current_index),
-        TokenType::FOR => for_expr(tokens, current_index),
         _ => assign(tokens, current_index)
     }
 
@@ -448,6 +494,8 @@ fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
 
     Ok(left)
 }
+
+
 
 fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
    

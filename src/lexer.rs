@@ -63,6 +63,10 @@ pub enum TokenType{
 
     TO,
 
+    //this is type stuff
+    TYPE,
+    BAR,
+
     OVERLOAD,
 
     EOF,
@@ -263,6 +267,8 @@ fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column
         
         "overload" => TokenType::OVERLOAD,
 
+        "type" => TokenType::TYPE,
+
         
 
 
@@ -316,6 +322,8 @@ pub fn lex(text : &'static str) -> Vec<Token>{
             },
             "*" => TokenType::STAR.token(line, column).append_to(&mut tokens),
             "/" => TokenType::SLASH.token(line, column).append_to(&mut tokens),
+            
+            "|" => TokenType::BAR.token(line, column).append_to(&mut tokens),
 
             "," => TokenType::COMMA.token(line, column).append_to(&mut tokens),
             ":" => TokenType::COLON.token(line, column).append_to(&mut tokens),

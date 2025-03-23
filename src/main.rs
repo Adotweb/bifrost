@@ -12,9 +12,9 @@ fn main() {
 
     let text = r#"
     
-            {
+            object = {
                 
-            }
+            };
 
         "#;
     

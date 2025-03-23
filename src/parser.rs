@@ -1,5 +1,4 @@
 use crate::*;
-use std::collections::HashMap;
 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -517,7 +516,6 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
                 while let Some(token) = tokens.get(*current_index){
 
-                    println!("{:?}", token);
                     let expression = expr(tokens, current_index)?;
 
 
@@ -576,7 +574,15 @@ pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
     
         let expression = expr(&tokens, index)?;
 
-        match_token(&tokens, index, TokenType::SEMICOLON)?;
+        //we check if the last expression was a block, if it was the semicolon becomes optional
+     
+
+
+        if let Expression::Block { ref expressions  } = expression{
+        } else {
+            match_token(&tokens, index, TokenType::SEMICOLON)?;
+        }
+    
 
         expressions.push(expression)
     }

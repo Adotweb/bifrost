@@ -241,9 +241,9 @@ fn const_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpre
 fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
     consume_token(tokens, current_index)?;
 
-    match_token(tokens, current_index, TokenType::LPAREN)?;
+    //match_token(tokens, current_index, TokenType::LPAREN)?;
     let condition = expr(tokens, current_index)?;
-    match_token(tokens, current_index, TokenType::RPAREN)?;
+    //match_token(tokens, current_index, TokenType::RPAREN)?;
 
     let if_block = expr(tokens, current_index)?;
     let mut else_if_blocks : Vec<(Expression, Expression)> = Vec::new();
@@ -259,15 +259,13 @@ fn if_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
         if match_tokens(tokens, current_index, vec![
             TokenType::IF
         ])? {
-            consume_token(tokens, current_index)?;
+            //consume_token(tokens, current_index)?;
  
-            match_token(tokens, current_index, TokenType::LPAREN)?;
             
-            println!("{:?}", get_current_token(tokens, current_index));
             let condition = expr(tokens, current_index)?;
 
 
-            match_token(tokens, current_index, TokenType::RPAREN)?;          
+            //match_token(tokens, current_index, TokenType::RPAREN)?;          
             let block = expr(tokens, current_index)?;
 
             else_if_blocks.push((condition, block));

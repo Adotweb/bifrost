@@ -11,12 +11,9 @@ fn main() {
 
 
     let text = r#"
-    
-            type something_cool = {
-                hello : (bool | string)
-            }; 
+     
 
-            let hello = 4;
+            fn(a : number, b : number) a + b;
 
         "#;
     

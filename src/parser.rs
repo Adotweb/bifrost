@@ -223,10 +223,6 @@ pub enum Expression {
         else_block : Option<Box<Expression>>
     },
 
-    Return {
-        value : Box<Expression>
-    },
-
     While{
         condition : Box<Expression>,
         block : Box<Expression>
@@ -238,7 +234,7 @@ pub enum Expression {
     },
 
     Fn{
-        arguments : Vec<Token>,
+        arguments : Vec<TypedName>,
         body : Box<Expression>
     },
 
@@ -265,7 +261,11 @@ pub enum Expression {
     TypeDeclaration{
         name : Token,
         r#type : Type 
-    }
+    },
+
+    Return(Box<Expression>),
+    Break,
+    Continue,
 }
 
 
@@ -386,9 +386,21 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
         TokenType::IF => if_expr(tokens, current_index),
         TokenType::WHILE => while_expr(tokens, current_index),
         TokenType::TYPE => type_declaration(tokens, current_index),
+        TokenType::FN => fn_expr(tokens, current_index),
+        TokenType::CONTINUE => Expression::Continue.expr(),
+        TokenType::BREAK => Expression::Break.expr(),
+        TokenType::RETURN => return_expr(tokens, current_index),
         _ => assign(tokens, current_index)
     }
 
+}
+
+fn return_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+
+    let returned = expr(tokens, current_index)?;
+
+    Expression::Return(Box::new(returned)).expr()
 }
 
 fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
@@ -405,6 +417,48 @@ fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Fallibl
         name,
         r#type : associated_type    
     }.expr()
+}
+
+fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?; 
+
+    match_token(tokens, current_index, TokenType::LPAREN)?;
+
+    let mut arguments : Vec<TypedName> = vec![];
+
+    while let Some(token) = tokens.get(*current_index){
+    
+        if let TokenType::RPAREN = token.r#type{
+            consume_token(tokens, current_index)?;
+            break; 
+        }
+
+        let argument = typed_primary(tokens, current_index)?;
+        arguments.push(argument);
+    
+        if match_tokens(tokens, current_index, vec![
+            TokenType::COMMA
+        ])? {
+            consume_token(tokens, current_index)?;
+
+            if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
+                return Err(Error::UnexpectedTokenOfMany{
+                    expected : vec![],
+                    unexpected : TokenType::RPAREN
+                })
+            }
+           
+            continue;
+        }
+
+    }
+
+    let body = expr(tokens, current_index)?;
+
+    Ok(Expression::Fn{
+        arguments,
+        body : Box::new(body)
+    })
 }
     
 fn let_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{

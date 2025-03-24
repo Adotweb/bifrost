@@ -11,10 +11,12 @@ fn main() {
 
 
     let text = r#"
-   
-            while i > 5 {
-                i = i + 1;
-            } 
+    
+            type something_cool = {
+                hello : (bool | string)
+            }; 
+
+            let hello = 4;
 
         "#;
     

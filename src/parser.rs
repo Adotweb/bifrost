@@ -4,49 +4,184 @@ use crate::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type{
     NullType,
+    AnyType,
 
-    TypedName{
-        name : Token,
-        r#type : Box<Type>
+    NumType,
+    StrType,
+    BoolType,
+
+    CustomType(String),
+   
+    ArrayType(Box<Type>),
+    UnionType(Vec<Type>),
+    ObjectType{
+        keys : Vec<String>,
+        types : Vec<Type>
     },
-    UntypedName(Token)
+
+
+}
+
+impl Type{
+    pub fn append_union_option(&self, option : Self) -> Self{
+        match self{
+            Type::UnionType(options) => {
+                println!("{:?}", options);
+                let mut new_options = options.clone();
+                new_options.push(option);
+
+                Type::UnionType(new_options)
+            },
+            _ => {
+                let mut new_options = vec![self.clone()];
+
+                new_options.push(option);
+                Type::UnionType(new_options)
+            }
+        }      
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypedName{
+    name : Token,
+    r#type : Type
 }
 
 type FallibleType = Result<Type, Error>;
 
 //this is for typings in let and so on
-fn typed_primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+fn typed_primary(tokens : &Vec<Token>, current_index : &mut usize) -> Result<TypedName, Error>{
     let name = get_current_token(tokens, current_index)?;
+    
+    consume_token(tokens, current_index)?;
 
-    match_token(tokens, current_index, TokenType::COLON)?;
+    if match_tokens(tokens, current_index, vec![
+        TokenType::COLON
+    ])?{
+        consume_token(tokens, current_index)?;
+        let constructed = typed(tokens, current_index)?;
 
-    let constructed = construction(tokens, current_index)?;
-
-    Ok(Type::TypedName{
-        name,
-        r#type : Box::new(constructed)
-    })
-}
-
-fn construction(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
-    match get_current_token(tokens, current_index)? {
-
-        
-
-        _ => Ok(Type::NullType)
+        Ok(TypedName{
+            name,
+            r#type : constructed
+        })   
+    } else {
+        Ok(TypedName{
+            name,
+            r#type : Type::AnyType
+        })
     }
+
+
+
 }
 
-fn union(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
-    todo!() 
+fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    let mut left = Type::AnyType;
+
+    while let Some(token) = tokens.get(*current_index){
+         match &token.r#type {
+            TokenType::BAR =>{
+                consume_token(tokens, current_index)?;
+                let new_left = left.append_union_option(typed(tokens, current_index)?);
+                println!("{:?}", new_left);
+
+                left = new_left
+            } 
+            TokenType::LPAREN => {
+                left = grp_typed(tokens, current_index)?;
+            },
+            TokenType::LBRACK => {
+                match_token(tokens, current_index, TokenType::LBRACK)?;
+                match_token(tokens, current_index, TokenType::RBRACK)?;
+                
+                left = Type::ArrayType(Box::new(left));
+            },
+            TokenType::LBRACE => {
+                left = object_typed(tokens, current_index)?; 
+            },
+            TokenType::ID(id_type) => {
+                consume_token(tokens, current_index)?;
+                match id_type.as_str() {
+                    "bool" =>{
+                        left = Type::BoolType;
+                    },
+                    "string" =>{
+                        left = Type::StrType;
+                    },
+                    "num" =>{
+                        left = Type::NumType;
+                    },
+                    "nil" => {
+                        left = Type::NullType;
+                    }
+                    _ => {
+                        left = Type::CustomType(id_type.to_string())
+                    }
+                }
+            },
+            _ => {
+                return Ok(left)
+            }
+        }
+    }
+
+    Ok(left)
 }
 
-fn array(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{ 
-    todo!()
+
+fn grp_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    match_token(tokens, current_index, TokenType::LPAREN)?;
+    let construct = typed(tokens, current_index)?;
+    match_token(tokens, current_index, TokenType::RPAREN)?;
+    return Ok(construct)
 }
-fn object(tokens : &Vec<Token>, current_index : &mut usize) - > FallibleType{
-    todo!()
+
+fn object_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{ 
+    match_token(tokens, current_index, TokenType::LBRACE)?;
+
+    let mut keys = Vec::new();
+    let mut types = Vec::new();
+
+    while let Some(token) = tokens.get(*current_index){
+        
+        let name = get_current_token(tokens, current_index)?; 
+        match_token(tokens, current_index, TokenType::ID_)?;
+
+        match_token(tokens, current_index, TokenType::COLON)?;
+
+        let construction = typed(tokens, current_index)?;
+
+        keys.push(name.r#type.get_id_val().unwrap());
+        types.push(construction);
+
+
+        if match_tokens(tokens, current_index, vec![
+            TokenType::COMMA,
+        ])? {
+            consume_token(tokens, current_index)?;
+        }
+
+        if match_tokens(tokens, current_index, vec![
+            TokenType::RBRACE,
+        ])? {
+            consume_token(tokens, current_index)?;
+
+            return Ok(Type::ObjectType{
+                keys,
+                types
+            })
+        }
+    }
+
+    return Ok(Type::ObjectType{
+            keys,
+            types
+    })
+
 }
+
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
@@ -123,9 +258,13 @@ pub enum Expression {
     },
 
     Declaration{
-        name : Token,
+        name : TypedName,
         value : Box<Expression>,
         constant : bool
+    },
+    TypeDeclaration{
+        name : Token,
+        r#type : Type 
     }
 }
 
@@ -246,16 +385,32 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
         TokenType::CONST => const_expr(tokens, current_index),
         TokenType::IF => if_expr(tokens, current_index),
         TokenType::WHILE => while_expr(tokens, current_index),
+        TokenType::TYPE => type_declaration(tokens, current_index),
         _ => assign(tokens, current_index)
     }
 
 }
 
+fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+
+    let name = get_current_token(tokens, current_index)?;
+
+    match_token(tokens, current_index, TokenType::ID_)?;
+    match_token(tokens, current_index, TokenType::EQ)?;
+
+    let associated_type = typed(tokens, current_index)?;
+
+    Expression::TypeDeclaration{
+        name,
+        r#type : associated_type    
+    }.expr()
+}
+    
 fn let_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
     consume_token(tokens, current_index)?;
-  
-    let name = get_current_token(tokens, current_index)?;
-    match_token(tokens, current_index, TokenType::ID_)?;
+    
+    let name = typed_primary(tokens, current_index)?;
     match_token(tokens, current_index, TokenType::EQ)?;
 
     let value = expr(tokens, current_index)?;
@@ -270,8 +425,7 @@ fn let_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpress
 fn const_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
     consume_token(tokens, current_index)?;
   
-    let name = get_current_token(tokens, current_index)?;
-    match_token(tokens, current_index, TokenType::ID_)?;
+    let name = typed_primary(tokens, current_index)?;
     match_token(tokens, current_index, TokenType::EQ)?;
 
     let value = expr(tokens, current_index)?;

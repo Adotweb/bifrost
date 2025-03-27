@@ -18,6 +18,10 @@ pub enum Type{
         keys : Vec<String>,
         types : Vec<Type>
     },
+    FunctionType{
+        arguments : Vec<Type>,
+        returns : Box<Type>
+    }
 
 
 }
@@ -121,6 +125,9 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                     }
                 }
             },
+            TokenType::FN => {
+                left = function_typed(tokens, current_index)?;
+            }
             _ => {
                 return Ok(left)
             }
@@ -130,6 +137,62 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
     Ok(left)
 }
 
+fn function_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
+    match_token(tokens, current_index, TokenType::FN)?;
+
+    match_token(tokens, current_index, TokenType::LPAREN)?;
+
+    let mut arguments : Vec<Type> = Vec::new();
+    
+    let mut trailing_comma : Option<Token> = None;
+
+    while let Some(token) = tokens.get(*current_index){
+
+        if match_tokens(tokens, current_index, vec![
+            TokenType::RPAREN
+        ])? {
+            consume_token(tokens, current_index)?;
+            break; 
+        }
+
+        let argument_type = typed(tokens, current_index)?;
+        arguments.push(argument_type);
+        trailing_comma = None;
+
+        if match_tokens(tokens, current_index, vec![
+            TokenType::RPAREN
+        ])? {
+            consume_token(tokens, current_index)?;
+            break; 
+        }
+
+
+
+        if match_tokens(tokens, current_index, vec![
+            TokenType::COMMA
+        ])? {
+            trailing_comma = Some(get_current_token(tokens, current_index)?);
+            consume_token(tokens, current_index)?;
+        }
+
+    }
+
+    if let Some(comma_token) = trailing_comma{
+        return Err(Error::UnexpectedTokenOfMany{
+            expected : vec![],
+            unexpected : comma_token.r#type
+        })
+    }
+
+    match_token(tokens, current_index, TokenType::ARROW)?;
+
+    let returns = typed(tokens, current_index)?;
+
+    Ok(Type::FunctionType{
+        arguments,
+        returns : Box::new(returns)
+    })
+}
 
 fn grp_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
     match_token(tokens, current_index, TokenType::LPAREN)?;

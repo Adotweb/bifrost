@@ -316,7 +316,10 @@ pub fn lex(text : &'static str) -> Vec<Token>{
             "+" => TokenType::PLUS.token(line, column).append_to(&mut tokens),
             "-" => {
                 match next_char{
-                    Some(">") => TokenType::ARROW.token(line, column).append_to(&mut tokens),
+                    Some(">") => {
+                        index += 1;
+                        TokenType::ARROW.token(line, column).append_to(&mut tokens)
+                    },
                     _ => TokenType::MINUS.token(line, column).append_to(&mut tokens),
                 }
             },

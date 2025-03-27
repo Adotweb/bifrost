@@ -11,13 +11,10 @@ fn main() {
 
 
     let text = r#"
-     
-                {
-                    {
-                        a + b;
-                    }
-                }
+   
 
+            type some_type = fn(number, number) -> number | string;
+            
         "#;
     
     let tokens = lex(text);

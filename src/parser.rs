@@ -772,8 +772,7 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             //if yes we toggle the object mode on
             let mut object_mode = false;
 
-            //we check if were in object mode by searching for a colon
-            //if we see it we consume it
+            //we check for an rbrace if we find one we immediately return 
             if match_tokens(tokens, current_index, vec![TokenType::RBRACE])? {
                 consume_token(tokens, current_index)?;
                 return Expression::Block{
@@ -781,8 +780,9 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
                 }.expr();
             };
 
-
-            let first_expr = expr(tokens, current_index)?;
+            //we copy the current index so we do not have to consume any tokens
+            let mut index_copy = current_index.clone();
+            let first_expr = expr(tokens, &mut index_copy)?;
 
 
             //we check if were in object mode by searching for a colon
@@ -793,7 +793,13 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             }
              
             if object_mode {
-  
+ 
+                //since we want to use this first_expr we have to overwrite our current index with
+                //the one after consumption of the first_expr tokens 
+
+                *current_index = index_copy;
+
+
                 //when were in object mode, the first wave of keys is already there and we consume
                 //it
                 let first_key = first_expr.clone();
@@ -857,52 +863,23 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
                 
                 }
 
-            }
+                return Ok(Expression::LiteralObject(keys, values))
 
-
-            //when were not in object mode we are in block mode
-            if !object_mode {
-                
-
-                let mut block : Vec<Expression> = Vec::new();
-                block.push(first_expr);
-                
-                match_token(tokens, current_index, TokenType::SEMICOLON)?;
-                if match_tokens(tokens, current_index, vec![
-                        TokenType::RBRACE
-                ])? {
-                    consume_token(tokens, current_index)?;
-                    return Expression::Block{
-                        expressions : block
+            } else {
+                //not object mode means block mode
+                if let Expression::Block { mut expressions } = block(tokens, current_index)? {
+                    expressions.push(first_expr);
+                    expressions.rotate_right(1);
+                    
+                    Expression::Block{
+                        expressions
                     }.expr()
+                } else {
+                    Err(Error::Nil)
                 }
-
-
-                while let Some(token) = tokens.get(*current_index){
-
-                    let expression = expr(tokens, current_index)?;
-
-
-                    block.push(expression);
-
-                    match_token(tokens, current_index, TokenType::SEMICOLON)?;
-
-                    if match_tokens(tokens, current_index, vec![
-                        TokenType::RBRACE
-                    ])? {
-                        consume_token(tokens, current_index)?;
-                        break;
-                    }
-                }
-
-                return Expression::Block{
-                    expressions : block
-                }.expr()
             }
 
-            Ok(Expression::Block{
-                expressions : vec![]
-            })
+
         }
 
         TokenType::LPAREN => {
@@ -925,6 +902,45 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
 }
 
+fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+
+    let mut expressions = Vec::new();
+
+    while let Some(token) = tokens.get(*current_index){
+        println!("{:?}", token);
+        if let TokenType::EOF = token.r#type  {
+            return Expression::Block{
+                expressions
+            }.expr()
+        }
+
+        if let TokenType::RBRACE = token.r#type  {
+            return Expression::Block{
+                expressions
+            }.expr()
+        }
+    
+        let expression = expr(&tokens, current_index)?;
+
+
+        match expression.clone() {
+            Expression::Block { expressions }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
+            Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
+            Expression::While { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
+            Expression::For { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; }, 
+            _ => { match_token(&tokens, current_index, TokenType::SEMICOLON)?; }
+        };
+    
+
+        expressions.push(expression)
+    }
+
+    Expression::Block{
+        expressions
+    }.expr()
+ 
+}
+
 fn match_optional_token(tokens : &Vec<Token>, current_index : &mut usize, optional_token : TokenType) -> Result<(), Error>{
     if match_tokens(tokens, current_index, vec![optional_token])? {
         consume_token(tokens, current_index)?;
@@ -934,29 +950,12 @@ fn match_optional_token(tokens : &Vec<Token>, current_index : &mut usize, option
 
 pub fn parse(tokens : Vec<Token>) -> Result<Vec<Expression>, Error> {
 
-    let mut expressions = Vec::new();
     let index = &mut 0;
 
-    while let Some(token) = tokens.get(*index){
-        if let TokenType::EOF = token.r#type {
-            return Ok(expressions) 
-        }
-    
-        let expression = expr(&tokens, index)?;
 
+    if let Expression::Block { expressions } = block(&tokens, index)?{
+        return Ok(expressions)
+    };
 
-        match expression.clone() {
-            Expression::Block { expressions }  => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
-            Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
-            Expression::While { condition, block } => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
-            Expression::For { condition, block } => { match_optional_token(&tokens, index, TokenType::SEMICOLON)?; },
-            _ => { match_token(&tokens, index, TokenType::SEMICOLON)?; }
-        };
-    
-
-        expressions.push(expression)
-    }
-
-
-    Ok(expressions)
+    Err(Error::Nil)
 }

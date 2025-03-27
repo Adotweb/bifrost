@@ -12,8 +12,11 @@ fn main() {
 
     let text = r#"
      
-
-            fn(a : number, b : number) a + b;
+                {
+                    {
+                        a + b;
+                    }
+                }
 
         "#;
     

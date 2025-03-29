@@ -12,7 +12,7 @@ fn main() {
 
     let text = r#"
    
-        fn something(hello : string){
+        fn something(hello : string) -> custom {
             print("hello");     
         }
             

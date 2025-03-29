@@ -96,16 +96,16 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                 left = new_left
             } 
             TokenType::LPAREN => {
-                left = grp_typed(tokens, current_index)?;
+                return grp_typed(tokens, current_index)
             },
             TokenType::LBRACK => {
                 match_token(tokens, current_index, TokenType::LBRACK)?;
                 match_token(tokens, current_index, TokenType::RBRACK)?;
                 
-                left = Type::ArrayType(Box::new(left));
+                return Ok(Type::ArrayType(Box::new(left)))
             },
             TokenType::LBRACE => {
-                left = object_typed(tokens, current_index)?; 
+                return object_typed(tokens, current_index)
             },
             TokenType::ID(id_type) => {
                 consume_token(tokens, current_index)?;
@@ -126,9 +126,11 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                         left = Type::CustomType(id_type.to_string())
                     }
                 }
+
+                return Ok(left)
             },
             TokenType::FN => {
-                left = function_typed(tokens, current_index)?;
+                return function_typed(tokens, current_index)
             }
             _ => {
                 return Ok(left)
@@ -301,6 +303,7 @@ pub enum Expression {
     Fn{
         name : Option<Token>,
         arguments : Vec<TypedName>,
+        result : Option<Type>,
         body : Box<Expression>
     },
 
@@ -530,11 +533,25 @@ fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
     }
 
+
+    let mut result_type : Option<Type> = None;
+    //maybe there is a type definition
+    if match_tokens(tokens, current_index, vec![
+        TokenType::ARROW
+    ])? {
+        consume_token(tokens, current_index)?;
+
+        result_type = Some(typed(tokens, current_index)?);
+
+        println!("{:?}", result_type);
+    }
+
     let body = expr(tokens, current_index)?;
 
     Ok(Expression::Fn{
         arguments,
         name,
+        result : result_type,
         body : Box::new(body)
     })
 }
@@ -1000,7 +1017,7 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
             Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::While { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::For { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; }, 
-            Expression::Fn { name, arguments, body } => {
+            Expression::Fn { name, arguments, body, result } => {
                 if let Expression::Block { expressions } = *body {
                     match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?;
                 }

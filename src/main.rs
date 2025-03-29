@@ -12,8 +12,9 @@ fn main() {
 
     let text = r#"
    
-
-            type some_type = fn(number, number) -> number | string;
+        fn something(hello : string){
+            print("hello");     
+        }
             
         "#;
     

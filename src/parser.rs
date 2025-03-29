@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use crate::*;
 
 
@@ -180,7 +182,7 @@ fn function_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleT
     if let Some(comma_token) = trailing_comma{
         return Err(Error::UnexpectedTokenOfMany{
             expected : vec![],
-            unexpected : comma_token.r#type
+            unexpected : comma_token
         })
     }
 
@@ -297,6 +299,7 @@ pub enum Expression {
     },
 
     Fn{
+        name : Option<Token>,
         arguments : Vec<TypedName>,
         body : Box<Expression>
     },
@@ -373,14 +376,14 @@ fn match_token(tokens : &Vec<Token>, current_index : &mut usize, check_token : T
         } else {
             Err(Error::UnexpectedToken{
                 expected : check_token,
-                unexpected : token.r#type
+                unexpected : token
             })
         }
 
     } else {
         Err(Error::UnexpectedToken{
             expected : check_token,
-            unexpected : TokenType::EOF
+            unexpected : get_current_token(tokens, current_index)?
         })
     }
 
@@ -485,9 +488,20 @@ fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Fallibl
 fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
     consume_token(tokens, current_index)?; 
 
+    let mut name = None;
+
+    if match_tokens(tokens, current_index, vec![
+        TokenType::ID_
+    ])?{
+        name = Some(get_current_token(tokens, current_index)?); 
+        consume_token(tokens, current_index)?;
+    }
+
+
     match_token(tokens, current_index, TokenType::LPAREN)?;
 
     let mut arguments : Vec<TypedName> = vec![];
+    
 
     while let Some(token) = tokens.get(*current_index){
     
@@ -503,11 +517,11 @@ fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             TokenType::COMMA
         ])? {
             consume_token(tokens, current_index)?;
-
-            if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
+            let current_token = get_current_token(tokens, current_index)?;
+            if current_token.r#type == TokenType::RPAREN{
                 return Err(Error::UnexpectedTokenOfMany{
                     expected : vec![],
-                    unexpected : TokenType::RPAREN
+                    unexpected : current_token
                 })
             }
            
@@ -520,6 +534,7 @@ fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
     Ok(Expression::Fn{
         arguments,
+        name,
         body : Box::new(body)
     })
 }
@@ -742,12 +757,12 @@ fn call(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
                     }                   
 
                     match_token(tokens, current_index, TokenType::COMMA)?;
-
+                    let current_token = get_current_token(tokens, current_index)?;
                     //check if we have a trailing comma
-                    if get_current_token(tokens, current_index)?.r#type == TokenType::RPAREN{
+                    if current_token.r#type == TokenType::RPAREN{
                         return Err(Error::UnexpectedTokenOfMany{
                             expected : vec![], 
-                            unexpected : TokenType::COMMA
+                            unexpected : current_token
                         })
                     }
                 }
@@ -929,17 +944,10 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
                 return Ok(Expression::LiteralObject(keys, values))
 
             } else {
-                //not object mode means block mode
-                if let Expression::Block { mut expressions } = block(tokens, current_index)? {
-                    expressions.push(first_expr);
-                    expressions.rotate_right(1);
-                    
-                    Expression::Block{
-                        expressions
-                    }.expr()
-                } else {
-                    Err(Error::Nil)
-                }
+                 
+                block(tokens, current_index)     
+           
+
             }
 
 
@@ -978,6 +986,7 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
         }
 
         if let TokenType::RBRACE = token.r#type  {
+            consume_token(tokens, current_index)?;
             return Expression::Block{
                 expressions
             }.expr()
@@ -991,12 +1000,18 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
             Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::While { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::For { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; }, 
+            Expression::Fn { name, arguments, body } => {
+                if let Expression::Block { expressions } = *body {
+                    match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?;
+                }
+            }
             _ => { match_token(&tokens, current_index, TokenType::SEMICOLON)?; }
         };
     
 
         expressions.push(expression)
     }
+
 
     Expression::Block{
         expressions

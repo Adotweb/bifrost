@@ -121,6 +121,9 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                     },
                     "nil" => {
                         left = Type::NullType;
+                    },
+                    "any" => {
+                        left = Type::AnyType;
                     }
                     _ => {
                         left = Type::CustomType(id_type.to_string())

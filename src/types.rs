@@ -22,10 +22,24 @@ impl TypeEnvironment{
             enclosing : None
         } 
     }
+
+    //this puts a new type into the current environment
+    pub fn assign_type(&mut self, key : String, assign_type : Type) -> Result<(), Error>{
+        self.values.insert(key, assign_type);
+        Ok(())
+    }
+   
+
+    //this tries to do the same, but instead checks if the key exists already and checks if the
+    //things are compatible
+    pub fn reassign_type(&mut self, key : String, assign_type : Type) -> Result<(), Error>{
+        self.values.insert(key, assign_type);
+        Ok(())
+    }
 }
 
 
-pub fn check_types(ast : Vec<Expression>) -> Result<(), Expression>{
+pub fn check_types(ast : Vec<Expression>) -> Result<(), Error>{
 
     let global_env : TypeEnvironment = TypeEnvironment::new();
 

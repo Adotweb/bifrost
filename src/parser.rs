@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use crate::*;
 
 
@@ -335,6 +333,13 @@ pub enum Expression {
         r#type : Type 
     },
 
+    Overload{
+        operation : Token,
+        arguments  : Vec<TypedName>,
+        result : Type,
+        body: Box<Expression>
+    },
+
     Return(Box<Expression>),
     Break,
     Continue,
@@ -459,6 +464,7 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
         TokenType::WHILE => while_expr(tokens, current_index),
         TokenType::TYPE => type_declaration(tokens, current_index),
         TokenType::FN => fn_expr(tokens, current_index),
+        TokenType::OVERLOAD => overload_expr(tokens, current_index),
         TokenType::CONTINUE => Expression::Continue.expr(),
         TokenType::BREAK => Expression::Break.expr(),
         TokenType::RETURN => return_expr(tokens, current_index),
@@ -489,6 +495,87 @@ fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Fallibl
         name,
         r#type : associated_type    
     }.expr()
+}
+
+fn overload_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+
+    let mut operator = None;
+
+    if match_tokens(&tokens, current_index, vec![
+        TokenType::PLUS,
+        TokenType::MINUS,
+        TokenType::BANG,
+        TokenType::STAR,
+        TokenType::SLASH,
+        TokenType::GEQ,
+        TokenType::GE,
+        TokenType::LEQ,
+        TokenType::LE,
+        TokenType::EQEQ,
+        TokenType::NEQ,
+    ])?{
+        operator = Some(get_current_token(tokens, current_index)?);
+        consume_token(tokens, current_index)?;
+    }  
+
+    //this part is one to one correspondand with the function definitions
+    
+    match_token(tokens, current_index, TokenType::LPAREN)?;
+
+    let mut arguments : Vec<TypedName> = vec![];
+    
+
+    while let Some(token) = tokens.get(*current_index){
+    
+        if let TokenType::RPAREN = token.r#type{
+            consume_token(tokens, current_index)?;
+            break; 
+        }
+
+        let argument = typed_primary(tokens, current_index)?;
+        arguments.push(argument);
+    
+        if match_tokens(tokens, current_index, vec![
+            TokenType::COMMA
+        ])? {
+            consume_token(tokens, current_index)?;
+            let current_token = get_current_token(tokens, current_index)?;
+            if current_token.r#type == TokenType::RPAREN{
+                return Err(Error::UnexpectedTokenOfMany{
+                    expected : vec![],
+                    unexpected : current_token
+                })
+            }
+           
+            continue;
+        }
+
+    }
+
+
+    let mut result_type : Option<Type> = None;
+    //maybe there is a type definition
+    if match_tokens(tokens, current_index, vec![
+        TokenType::ARROW
+    ])? {
+        consume_token(tokens, current_index)?;
+
+        result_type = Some(typed(tokens, current_index)?);
+
+        println!("{:?}", result_type);
+    }
+
+    let body = expr(tokens, current_index)?;
+
+    Ok(Expression::Overload{
+        operation : operator.unwrap(),
+        arguments,
+        result : result_type.unwrap(),
+        body : Box::new(body)
+    })
+    
+
 }
 
 fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
@@ -971,7 +1058,7 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             }
 
 
-        }
+        },
 
         TokenType::LPAREN => {
             let expression = expr(tokens, current_index)?;
@@ -1021,6 +1108,11 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
             Expression::While { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::For { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; }, 
             Expression::Fn { name, arguments, body, result } => {
+                if let Expression::Block { expressions } = *body {
+                    match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?;
+                }
+            },
+            Expression::Overload { operation, arguments, result, body } => {
                 if let Expression::Block { expressions } = *body {
                     match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?;
                 }

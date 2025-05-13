@@ -39,13 +39,42 @@ impl TypeEnvironment{
     }
 
 
+    pub fn get_type(&mut self, key : String) -> Option<Type>{
+       
+        //check in the current environment before moving upwards
+        if let Some(type_inside) = self.values.get(&key){
+            return Some(type_inside.clone())
+        } 
+
+        //then we check upwards (recursively)
+        if let Some(enclosing) = &self.enclosing{
+            return enclosing.borrow_mut().get_type(key);
+        }
+
+
+        //if all this fails we return none, meaning the type does not exist in the codebase
+        return None
+    } 
    
 
     pub fn assign_type(&mut self, key : String, assign_type : Type) -> Result<(), Error>{
 
-    
-        
+        //check if the value already exists and if yes we return (since we cannot set)
+        if let Some(_) = self.values.get(&key){
+            return Ok(());
+        }
+
+        self.values.insert(key, assign_type);
+         
         Ok(())
+    }
+
+    //checks the type provided against the keyed type inside the environment
+    pub fn check_type(&mut self, key : String, check_type : Type) -> Result<bool, Error> {
+        if let Some(type_inside) = self.values.get(&key)  {
+            return Ok(*type_inside == check_type)
+        }
+        return Err(Error::TypeNotFound)
     }
 }
 

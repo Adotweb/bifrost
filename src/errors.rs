@@ -10,7 +10,8 @@ pub enum Error{
     UnexpectedTokenOfMany{
         expected : Vec<TokenType>,
         unexpected : Token
-    }
+    },
+    TypeNotFound
 }
 
 

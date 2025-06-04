@@ -269,7 +269,7 @@ fn identifier(chars : Vec<String>, index : &mut usize, line : &mut usize, column
         "overload" => TokenType::OVERLOAD,
 
         "type" => TokenType::TYPE,
-
+        "struct" => TokenType::STRUCT,
         
 
 

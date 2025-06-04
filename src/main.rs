@@ -12,13 +12,13 @@ fn main() {
 
 
     let text = r#"
-    
+   
+            struct Person {
+               age : num,
+               bank : num
+            }
 
-            type p = {
-                value1 : num
-                value2 : str
-            }; 
-
+            
 
             
         "#;

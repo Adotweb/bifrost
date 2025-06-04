@@ -546,13 +546,13 @@ fn struct_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Falli
 
     match_token(tokens, current_index, TokenType::ID_)?;
    
-    match_token(tokens, current_index, TokenType::LBRACE)?;
 
-    let r#type = object_typed(tokens, current_index)?;
+    let r#type = object_typed(tokens, current_index)?; 
+
 
     Expression::StructDeclaration{
         name,
-        r#type : r#type
+        r#type : r#type,
     }.expr()
 }
 
@@ -1120,6 +1120,7 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
 
 
         match expression.clone() {
+            Expression::StructDeclaration { name, r#type } => { match_optional_token(tokens, current_index, TokenType::SEMICOLON)? },
             Expression::Block { expressions }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::If { condition, if_block, else_if_blocks, else_block }  => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },
             Expression::While { condition, block } => { match_optional_token(&tokens, current_index, TokenType::SEMICOLON)?; },

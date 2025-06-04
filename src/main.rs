@@ -13,13 +13,22 @@ fn main() {
 
     let text = r#"
    
-            struct Person {
-               age : num,
-               bank : num
+
+            struct vec3 {
+                x : num,
+                y : num,
+                z : num
+            }            
+    
+
+            overload + (a : vec3, b : vec3) -> vec3{
+                return vec3 {
+                    x : a.x + b.x,
+                    y : a.y + b.y,
+                    z : a.z + b.z
+                };
             }
-
             
-
             
         "#;
     

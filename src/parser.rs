@@ -105,6 +105,12 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                 left = new_left
             } 
             TokenType::LPAREN => {
+
+                if changed{
+                    return Ok(left)
+                } else {
+                    changed = true
+                }
                 left = grp_typed(tokens, current_index)?;
             },
             TokenType::LBRACK => {
@@ -114,18 +120,26 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                 left = Type::ArrayType(Box::new(left))
             },
             TokenType::LBRACE => {
+                if changed{
+                    return Ok(left)
+                } else {
+                    changed = true
+                }
+
                 left = object_typed(tokens, current_index)?;
             },
             TokenType::ID(id_type) => {
                 //we cannot override a type with another type 
                 //constructions like type1 type2 do not make any sense and do not work
                 //so we check if the type has already been changed and if yes return
-                
+               
                 if changed{
                     return Ok(left)
                 } else {
                     changed = true
                 }
+
+
 
                 consume_token(tokens, current_index)?;
 
@@ -152,13 +166,23 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
 
             },
             TokenType::FN => {
+
+                if changed{
+                    return Ok(left)
+                } else {
+                    changed = true
+                }
                 left = function_typed(tokens, current_index)?;
             }
             _ => {
+
+                println!("{:?}", left);
                 return Ok(left)
             }
         }
     }
+
+
 
     Ok(left)
 }
@@ -245,7 +269,6 @@ fn object_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleTyp
         keys.push(name.r#type.get_id_val().unwrap());
         
 
-        println!("{:?}", construction.clone());
         types.push(construction);
 
 
@@ -624,6 +647,7 @@ fn overload_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleEx
 
     }
 
+
     let body = expr(tokens, current_index)?;
 
     Ok(Expression::Overload{
@@ -976,7 +1000,6 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
                     let value = expr(tokens, current_index)?;
                     values.push(value);
                     
-                    println!("{:?}", get_current_token(tokens, current_index));
                
                 
                     //check if we have a comma (could in theory be voluntary)

@@ -12,10 +12,14 @@ fn main() {
 
 
     let text = r#"
-      
-      let obj = {
+    
 
-      };
+            type p = {
+                value1 : num
+                value2 : str
+            }; 
+
+
             
         "#;
     

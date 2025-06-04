@@ -65,6 +65,7 @@ pub enum TokenType{
 
     //this is type stuff
     TYPE,
+    STRUCT,
     BAR,
 
     OVERLOAD,

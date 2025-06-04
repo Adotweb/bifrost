@@ -1,3 +1,5 @@
+use std::env::current_dir;
+
 use crate::*;
 
 
@@ -5,6 +7,7 @@ use crate::*;
 pub enum Type{
     NullType,
     AnyType,
+
 
     NumType,
     StrType,
@@ -18,6 +21,14 @@ pub enum Type{
         keys : Vec<String>,
         types : Vec<Type>
     },
+
+    //the struct is somewhat special. while it has a type it is used as a normal expression rather
+    //than a typed expression like the other types
+    Struct{
+        keys : Vec<String>,
+        types : Vec<Type>
+    },
+
     FunctionType{
         arguments : Vec<Type>,
         returns : Box<Type>
@@ -30,7 +41,6 @@ impl Type{
     pub fn append_union_option(&self, option : Self) -> Self{
         match self{
             Type::UnionType(options) => {
-                println!("{:?}", options);
                 let mut new_options = options.clone();
                 new_options.push(option);
 
@@ -83,11 +93,10 @@ fn typed_primary(tokens : &Vec<Token>, current_index : &mut usize) -> Result<Typ
 
 fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
     let mut left = Type::AnyType;
-
+    let mut changed = false;
 
     while let Some(token) = tokens.get(*current_index){
 
-        println!("{:?}", token);
          match &token.r#type {
             TokenType::BAR =>{
                 consume_token(tokens, current_index)?;
@@ -108,7 +117,18 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                 left = object_typed(tokens, current_index)?;
             },
             TokenType::ID(id_type) => {
+                //we cannot override a type with another type 
+                //constructions like type1 type2 do not make any sense and do not work
+                //so we check if the type has already been changed and if yes return
+                
+                if changed{
+                    return Ok(left)
+                } else {
+                    changed = true
+                }
+
                 consume_token(tokens, current_index)?;
+
                 match id_type.as_str() {
                     "bool" =>{
                         left = Type::BoolType;
@@ -135,7 +155,6 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                 left = function_typed(tokens, current_index)?;
             }
             _ => {
-                println!("returning");
                 return Ok(left)
             }
         }
@@ -224,13 +243,19 @@ fn object_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleTyp
         let construction = typed(tokens, current_index)?;
 
         keys.push(name.r#type.get_id_val().unwrap());
+        
+
+        println!("{:?}", construction.clone());
         types.push(construction);
 
 
+
+        let mut comma_used = false;
         if match_tokens(tokens, current_index, vec![
             TokenType::COMMA,
         ])? {
             consume_token(tokens, current_index)?;
+            comma_used = true;
         }
 
         if match_tokens(tokens, current_index, vec![
@@ -242,6 +267,10 @@ fn object_typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleTyp
                 keys,
                 types
             })
+        }
+
+        if !comma_used {
+            match_token(tokens, current_index, TokenType::COMMA)?;
         }
     }
 
@@ -333,6 +362,15 @@ pub enum Expression {
     TypeDeclaration{
         name : Token,
         r#type : Type 
+    },
+    StructDeclaration{
+        name : Token, 
+        r#type : Type
+    },
+    StructUsage{
+        struct_name : Token,
+        fields : Vec<Token>,
+        values : Vec<Expression>
     },
 
     Overload{
@@ -465,6 +503,7 @@ fn expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
         TokenType::IF => if_expr(tokens, current_index),
         TokenType::WHILE => while_expr(tokens, current_index),
         TokenType::TYPE => type_declaration(tokens, current_index),
+        TokenType::STRUCT => struct_declaration(tokens, current_index),
         TokenType::FN => fn_expr(tokens, current_index),
         TokenType::OVERLOAD => overload_expr(tokens, current_index),
         TokenType::CONTINUE => Expression::Continue.expr(),
@@ -497,6 +536,23 @@ fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Fallibl
     Expression::TypeDeclaration{
         name,
         r#type : associated_type    
+    }.expr()
+}
+
+fn struct_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression{
+    consume_token(tokens, current_index)?;
+
+    let name = get_current_token(tokens, current_index)?;
+
+    match_token(tokens, current_index, TokenType::ID_)?;
+   
+    match_token(tokens, current_index, TokenType::LBRACE)?;
+
+    let r#type = object_typed(tokens, current_index)?;
+
+    Expression::StructDeclaration{
+        name,
+        r#type : r#type
     }.expr()
 }
 
@@ -566,7 +622,6 @@ fn overload_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleEx
 
         result_type = Some(typed(tokens, current_index)?);
 
-        println!("{:?}", result_type);
     }
 
     let body = expr(tokens, current_index)?;
@@ -636,7 +691,6 @@ fn fn_expr(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
         result_type = Some(typed(tokens, current_index)?);
 
-        println!("{:?}", result_type);
     }
 
     let body = expr(tokens, current_index)?;
@@ -897,9 +951,59 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
    
     let token = get_current_token(tokens, current_index)?;
     consume_token(tokens, current_index)?;
-    match token.r#type{
+    match &token.r#type{
         
         TokenType::ID(name) => {
+
+            //clone the name for clean borrow;
+            let name = name.clone();
+            let struct_name = token.clone();
+            if match_tokens(tokens, current_index, vec![
+                TokenType::LBRACE
+            ])?{
+                //this means that we are using a struct
+                consume_token(tokens, current_index)?; 
+
+                let mut fields = vec![];
+                let mut values = vec![];
+                while let Some(token) = tokens.get(*current_index){
+                   
+                    let field_name = get_current_token(tokens, current_index)?;
+                    match_token(tokens, current_index, TokenType::ID_)?;
+                    fields.push(field_name);
+
+                    match_token(tokens, current_index, TokenType::COLON)?; 
+                    let value = expr(tokens, current_index)?;
+                    values.push(value);
+                    
+                    println!("{:?}", get_current_token(tokens, current_index));
+               
+                
+                    //check if we have a comma (could in theory be voluntary)
+                    let mut comma_used = false;
+                    if match_tokens(tokens, current_index, vec![
+                        TokenType::COMMA,
+                    ])? {
+                        comma_used = true;
+                        consume_token(tokens, current_index)?;
+                    }
+
+                    if match_tokens(tokens, current_index, vec![
+                        TokenType::RBRACE,
+                    ])? {
+                        consume_token(tokens, current_index)?;
+                        return Expression::StructUsage{ struct_name, fields, values}.expr()
+                    }
+                   
+                    //if no comma was used so far we check again for one to make sure
+                    if !comma_used{
+                        match_token(tokens, current_index, TokenType::COMMA)?;
+                    }
+
+                }
+
+            }
+
             Expression::LiteralID(name).expr()
         },
         TokenType::NUM(number) =>{
@@ -915,7 +1019,7 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
             Expression::LiteralNum(integral, fractional).expr()
         },
         TokenType::STR(string) => {
-            Expression::LiteralStr(string).expr()
+            Expression::LiteralStr(string.to_string()).expr()
         },
         TokenType::TRUE => {
             Expression::LiteralBool(true).expr()
@@ -956,9 +1060,6 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
 
         TokenType::LBRACE => {
             
-            //first we check if we have an identifier followed by a colon 
-            //if yes we toggle the object mode on
-            let mut object_mode = false;
 
             //we check for an rbrace if we find one we immediately return 
             if match_tokens(tokens, current_index, vec![TokenType::RBRACE])? {
@@ -968,98 +1069,12 @@ fn primary(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpressi
                 }.expr();
             };
 
-            //we copy the current index so we do not have to consume any tokens
-            let mut index_copy = current_index.clone();
-            let first_expr = expr(tokens, &mut index_copy)?;
 
 
-            //we check if were in object mode by searching for a colon
-            //if we see it we consume it
-            if match_tokens(tokens, current_index, vec![TokenType::COLON])? {
-                object_mode = true;
-                consume_token(tokens, current_index)?;
-            }
              
-            if object_mode {
- 
-                //since we want to use this first_expr we have to overwrite our current index with
-                //the one after consumption of the first_expr tokens 
-
-                *current_index = index_copy;
-
-
-                //when were in object mode, the first wave of keys is already there and we consume
-                //it
-                let first_key = first_expr.clone();
-                let first_expr = expr(tokens, current_index)?;
-               
-                
-
-                let mut keys = Vec::new();
-                let mut values = Vec::new();
-
-                keys.push(first_key);
-                values.push(first_expr);
-
-
-                //then we check if we are done, and if not we check for a comma
-                if match_tokens(tokens, current_index, vec![
-                    TokenType::RBRACE
-                ])? {
-                    consume_token(tokens, current_index)?;
-                    return Ok(Expression::LiteralObject(keys, values)) 
-                } else {
-                    match_token(tokens, current_index, TokenType::COMMA)?;
-                }
-
-                //again we match twice to lookout for trailing commas
-                if match_tokens(tokens, current_index, vec![
-                    TokenType::RBRACE
-                ])? {
-                    consume_token(tokens, current_index)?;
-                    return Ok(Expression::LiteralObject(keys, values)) 
-                } 
-
-
-                //after that we do that again but in a loop this time
-                while let Some(token) = tokens.get(*current_index){
-
-                    let key = expr(tokens, current_index)?; 
-
-                    match_token(tokens, current_index, TokenType::COLON)?;
-
-                    let literal = expr(tokens, current_index)?;
-
-                    keys.push(key);
-                    values.push(literal);
-
-                    if match_tokens(tokens, current_index, vec![
-                        TokenType::RBRACE
-                    ])? {
-                        consume_token(tokens, current_index)?;
-                        return Ok(Expression::LiteralObject(keys, values)) 
-                    }
-
-                    match_token(tokens, current_index, TokenType::COMMA)?;
-                    
-                    if match_tokens(tokens, current_index, vec![
-                        TokenType::RBRACE
-                    ])? {
-                        consume_token(tokens, current_index)?;
-                        return Ok(Expression::LiteralObject(keys, values)) 
-                    }
-                
-                }
-
-                return Ok(Expression::LiteralObject(keys, values))
-
-            } else {
                  
-                block(tokens, current_index)     
-           
-
-            }
-
+            block(tokens, current_index)     
+        
 
         },
 
@@ -1088,7 +1103,6 @@ fn block(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleExpression
     let mut expressions = Vec::new();
 
     while let Some(token) = tokens.get(*current_index){
-        println!("{:?}", token);
         if let TokenType::EOF = token.r#type  {
             return Expression::Block{
                 expressions

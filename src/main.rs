@@ -12,17 +12,10 @@ fn main() {
 
 
     let text = r#"
+      
+      let obj = {
 
-        type v3 = {
-            x : number,
-            y : number,
-            z : number,
-        };
-    
-        overload + (a : v3, b : v3) -> number {
-            return a.x + b.x;
-        }
-
+      };
             
         "#;
     

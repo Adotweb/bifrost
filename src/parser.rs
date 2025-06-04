@@ -84,26 +84,28 @@ fn typed_primary(tokens : &Vec<Token>, current_index : &mut usize) -> Result<Typ
 fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
     let mut left = Type::AnyType;
 
+
     while let Some(token) = tokens.get(*current_index){
+
+        println!("{:?}", token);
          match &token.r#type {
             TokenType::BAR =>{
                 consume_token(tokens, current_index)?;
                 let new_left = left.append_union_option(typed(tokens, current_index)?);
-                println!("{:?}", new_left);
 
                 left = new_left
             } 
             TokenType::LPAREN => {
-                return grp_typed(tokens, current_index)
+                left = grp_typed(tokens, current_index)?;
             },
             TokenType::LBRACK => {
                 match_token(tokens, current_index, TokenType::LBRACK)?;
                 match_token(tokens, current_index, TokenType::RBRACK)?;
                 
-                return Ok(Type::ArrayType(Box::new(left)))
+                left = Type::ArrayType(Box::new(left))
             },
             TokenType::LBRACE => {
-                return object_typed(tokens, current_index)
+                left = object_typed(tokens, current_index)?;
             },
             TokenType::ID(id_type) => {
                 consume_token(tokens, current_index)?;
@@ -128,12 +130,12 @@ fn typed(tokens : &Vec<Token>, current_index : &mut usize) -> FallibleType{
                     }
                 }
 
-                return Ok(left)
             },
             TokenType::FN => {
-                return function_typed(tokens, current_index)
+                left = function_typed(tokens, current_index)?;
             }
             _ => {
+                println!("returning");
                 return Ok(left)
             }
         }
@@ -490,6 +492,7 @@ fn type_declaration(tokens : &Vec<Token>, current_index : &mut usize) -> Fallibl
     match_token(tokens, current_index, TokenType::EQ)?;
 
     let associated_type = typed(tokens, current_index)?;
+
 
     Expression::TypeDeclaration{
         name,

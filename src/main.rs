@@ -21,14 +21,6 @@ fn main() {
             }            
     
 
-            overload + (a : vec3, b : vec3) -> vec3{
-                return vec3 {
-                    x : a.x + b.x,
-                    y : a.y + b.y,
-                    z : a.z + b.z
-                };
-            }
-            
             
         "#;
     

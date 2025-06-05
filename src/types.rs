@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
 
-
+#[derive(Clone, Debug)]
 pub struct TypeEnvironment {
     //this is where assignments go to, be it consts or lets, it does not matter since reassignment
     //is not possible across types (except for any)
@@ -19,12 +19,12 @@ pub struct TypeEnvironment {
     //overloadings are not global,
     //we always have this : (Operation, Type, Type) -> Type, that shows the operation that takes
     //type x type -> type
-    overloadings : HashMap<(Token, Type, Type), Type>
+    operations : HashMap<(TokenType, Type, Type), Type>
 }
 
 impl TypeEnvironment{
     //returns a new environemnt that is enclosed in the old one (is "nested" inside)
-    pub fn enclose(&mut self, enclosing : TypeEnvironment) -> TypeEnvironment{  
+    pub fn enclose(enclosing : TypeEnvironment) -> TypeEnvironment{  
         
         Self{
             enclosing : Some(Rc::new(RefCell::new(enclosing))),
@@ -80,25 +80,64 @@ impl TypeEnvironment{
 
 impl Default for TypeEnvironment{
     fn default() -> Self {
+    
         Self{
             enclosing : None,
-            overloadings : HashMap::new(),
+            operations :HashMap::new(), 
             types : HashMap::new(),
             values : HashMap::new()
         }
     }
 }
 
-pub fn check_types(ast : Vec<Expression>) -> Result<(), Error>{
+pub fn type_check(ast : Vec<Expression>) -> Result<(), Error>{
 
-    let global_env : TypeEnvironment = TypeEnvironment::new();
+    let global_env = TypeEnvironment::new();
 
+    check_expression(ast, global_env)?;
+    Ok(())
+}
+
+
+//this checks first of all if we have any kind of internal type errors, also when handling blocks
+//we need to check what kind of type is returned
+pub fn check_expression(ast : Vec<Expression>, enclosing : TypeEnvironment) -> Result<Type, Error>{
 
     for expression in ast{
-        
+        match expression {
+            Expression::TypeDeclaration { name, r#type } | Expression::StructDeclaration { name, r#type } => {
+
+            },
+            Expression::Declaration { name, value, constant } => {
+
+            },
+            Expression::Assign { target, value } => {
+
+            },
+
+            Expression::Overload { operation, arguments, result, body } => {
+
+            },
+
+            Expression::FunctionCall { function, arguments } => {
+
+            },
+
+            Expression::Binary { left, operator, right } => {
+            },
+
+            Expression::Block { expressions } => {
+                let env = TypeEnvironment::enclose(enclosing.clone());
+            
+                let return_type = check_expression(expressions, env);     
+                
+                return return_type
+            }
+            _ => ()
+        }
     } 
 
 
     
-    Ok(())
+    Ok(Type::NullType)
 } 

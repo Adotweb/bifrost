@@ -3,7 +3,7 @@ use std::env::current_dir;
 use crate::*;
 
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type{
     NullType,
     AnyType,
